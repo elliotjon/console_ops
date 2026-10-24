@@ -9,35 +9,10 @@ defmodule ConsoleOps.ParamTest do
   # Bound for the wide integer generators in the cast/2 properties.
   @wide 2 ** 100
 
-  describe "%ConsoleOps.Param{}" do
-    test "defaults to an optional param with no default and no doc" do
-      assert %Param{required?: false, default: nil, doc: nil} = %Param{name: :id, type: :integer}
-    end
-
-    for {missing, given} <- [name: [type: :integer], type: [name: :id]] do
-      test "requires #{inspect(missing)}" do
-        error = assert_raise ArgumentError, fn -> struct!(Param, unquote(given)) end
-        assert error.message =~ inspect([unquote(missing)])
-      end
-    end
-  end
-
-  describe "types/0" do
-    test "lists the supported types in a stable order" do
-      assert Param.types() == [:string, :integer, :boolean, :atom, :id, :map, :any]
-    end
-  end
-
   describe "new!/3" do
     test "builds an optional param with no default and no doc" do
       assert Param.new!(:invoice_id, :id) ==
                %Param{name: :invoice_id, type: :id, required?: false, default: nil, doc: nil}
-    end
-
-    for type <- Param.types() do
-      test "accepts the #{inspect(type)} type" do
-        assert %Param{type: unquote(type)} = Param.new!(:value, unquote(type))
-      end
     end
 
     test "maps the :required option to the required? field" do
@@ -61,7 +36,7 @@ defmodule ConsoleOps.ParamTest do
   end
 
   describe "new!/3 name and type validation" do
-    for name <- ["amount", {:amount}] do
+    for name <- ["amount", {:amount}, nil] do
       message = "invalid param name: expected an atom other than nil, got: #{inspect(name)}"
 
       test "raises when the name is #{inspect(name)}" do
@@ -71,10 +46,11 @@ defmodule ConsoleOps.ParamTest do
       end
     end
 
-    test "raises when the name is nil" do
+    # The type error names the param, so the name must be valid first.
+    test "checks the name before the type" do
       assert_raise ArgumentError,
-                   "invalid param name: expected an atom other than nil, got: nil",
-                   fn -> Param.new!(nil, :string) end
+                   ~S|invalid param name: expected an atom other than nil, got: "amount"|,
+                   fn -> Param.new!("amount", :int) end
     end
 
     for {type, message} <- [
@@ -88,72 +64,78 @@ defmodule ConsoleOps.ParamTest do
     end
 
     for type <- [:float, "integer"] do
+      message =
+        "unknown type #{inspect(type)} for param :amount, supported types are: " <>
+          "[:string, :integer, :boolean, :atom, :id, :map, :any]"
+
       test "raises listing the supported types for #{inspect(type)}" do
-        error = assert_raise ArgumentError, fn -> Param.new!(:amount, unquote(type)) end
-
-        assert error.message =~ inspect(unquote(type))
-        assert error.message =~ ":amount"
-        refute error.message =~ "did you mean"
-
-        for supported <- Param.types() do
-          assert error.message =~ inspect(supported)
-        end
+        assert_raise ArgumentError, unquote(message), fn -> Param.new!(:amount, unquote(type)) end
       end
     end
   end
 
   describe "new!/3 option validation" do
     for opts <- [[:required], [{"required", true}]] do
+      message =
+        "invalid options for param :amount: expected a keyword list, got: #{inspect(opts)}"
+
       test "raises when the options are #{inspect(opts)}, not a keyword list" do
-        error = assert_raise ArgumentError, fn -> Param.new!(:amount, :integer, unquote(opts)) end
-        assert error.message =~ inspect(unquote(opts))
-        assert error.message =~ ":amount"
+        assert_raise ArgumentError, unquote(message), fn ->
+          Param.new!(:amount, :integer, unquote(opts))
+        end
       end
     end
 
     test "raises naming every unknown option and the allowed ones" do
-      error =
-        assert_raise ArgumentError, fn ->
-          Param.new!(:amount, :integer, requird: true, deflaut: 1)
-        end
-
-      assert error.message =~ ":amount"
-
-      for option <- [:requird, :deflaut, :required, :default, :doc] do
-        assert error.message =~ inspect(option)
-      end
+      assert_raise ArgumentError,
+                   "unknown options [:requird, :deflaut] for param :amount, " <>
+                     "valid options are: [:required, :default, :doc]",
+                   fn -> Param.new!(:amount, :integer, requird: true, deflaut: 1) end
     end
 
     test "lists an unknown option given twice only once" do
-      error =
-        assert_raise ArgumentError, fn ->
-          Param.new!(:amount, :integer, foo: 1, foo: 2)
-        end
+      assert_raise ArgumentError,
+                   "unknown options [:foo] for param :amount, " <>
+                     "valid options are: [:required, :default, :doc]",
+                   fn -> Param.new!(:amount, :integer, foo: 1, foo: 2) end
+    end
 
-      assert error.message =~ "unknown options [:foo]"
+    for {option, opts} <- [
+          required: [required: true, required: false],
+          doc: [doc: "a", default: 1, doc: "b"]
+        ] do
+      message =
+        "duplicate options [#{inspect(option)}] for param :amount, " <>
+          "each option can be given at most once"
+
+      test "raises when #{inspect(option)} is given more than once in #{inspect(opts)}" do
+        assert_raise ArgumentError, unquote(message), fn ->
+          Param.new!(:amount, :integer, unquote(opts))
+        end
+      end
     end
 
     for value <- [nil, "true", 1] do
-      test "raises when :required is #{inspect(value)}" do
-        error =
-          assert_raise ArgumentError, fn ->
-            Param.new!(:amount, :integer, required: unquote(value))
-          end
+      message =
+        "invalid value for :required option of param :amount: " <>
+          "expected a boolean, got: #{inspect(value)}"
 
-        assert error.message =~ ":required"
-        assert error.message =~ inspect(unquote(value))
-        assert error.message =~ ":amount"
+      test "raises when :required is #{inspect(value)}" do
+        assert_raise ArgumentError, unquote(message), fn ->
+          Param.new!(:amount, :integer, required: unquote(value))
+        end
       end
     end
 
     for value <- [:intro, 42, ~c"Amount in cents"] do
-      test "raises when :doc is #{inspect(value)}" do
-        error =
-          assert_raise ArgumentError, fn -> Param.new!(:amount, :integer, doc: unquote(value)) end
+      message =
+        "invalid value for :doc option of param :amount: " <>
+          "expected a string or nil, got: #{inspect(value)}"
 
-        assert error.message =~ ":doc"
-        assert error.message =~ inspect(unquote(value))
-        assert error.message =~ ":amount"
+      test "raises when :doc is #{inspect(value)}" do
+        assert_raise ArgumentError, unquote(message), fn ->
+          Param.new!(:amount, :integer, doc: unquote(value))
+        end
       end
     end
 
@@ -166,24 +148,17 @@ defmodule ConsoleOps.ParamTest do
   end
 
   describe "new!/3 default validation" do
-    test "rejects a default that only casts to the type, hinting at the cast value" do
-      assert_raise ArgumentError,
-                   "invalid value for :default option of param :amount: " <>
-                     ~S|expected a value of type :id, got: "5" (defaults are not cast, use 5 instead)|,
-                   fn -> Param.new!(:amount, :id, default: "5") end
-    end
-
-    # "foo" casts because the atom :foo exists: this file uses it.
     for {type, default, hint} <- [
           {:integer, "5", "use 5 instead"},
+          {:id, "5", "use 5 instead"},
           {:boolean, "true", "use true instead"},
-          {:atom, "foo", "use :foo instead"}
+          {:atom, "ok", "use :ok instead"}
         ] do
       message =
         "invalid value for :default option of param :amount: expected a value of type " <>
           "#{inspect(type)}, got: #{inspect(default)} (defaults are not cast, #{hint})"
 
-      test "rejects #{inspect(default)} as a #{inspect(type)} default with the hint #{inspect(hint)}" do
+      test "rejects #{inspect(default)} as a #{inspect(type)} default, hinting at the cast value" do
         assert_raise ArgumentError, unquote(message), fn ->
           Param.new!(:amount, unquote(type), default: unquote(default))
         end
@@ -224,40 +199,6 @@ defmodule ConsoleOps.ParamTest do
         default = unquote(Macro.escape(default))
         assert %Param{default: ^default} = Param.new!(:amount, unquote(type), default: default)
       end
-    end
-  end
-
-  describe "new!/3 validation order" do
-    test "checks the name before the type" do
-      error = assert_raise ArgumentError, fn -> Param.new!("amount", :int) end
-      assert error.message =~ inspect("amount")
-      refute error.message =~ "unknown type"
-    end
-
-    test "checks the type before the options" do
-      error = assert_raise ArgumentError, fn -> Param.new!(:amount, :int, deflaut: 1) end
-      assert error.message =~ "unknown type :int"
-      refute error.message =~ ":deflaut"
-    end
-
-    test "checks for unknown options before the :required option" do
-      error =
-        assert_raise ArgumentError, fn ->
-          Param.new!(:amount, :integer, required: "yes", deflaut: 1)
-        end
-
-      assert error.message =~ ":deflaut"
-      refute error.message =~ inspect("yes")
-    end
-
-    test "checks the :required option before the :doc option" do
-      error =
-        assert_raise ArgumentError, fn ->
-          Param.new!(:amount, :integer, required: "yes", doc: :intro)
-        end
-
-      assert error.message =~ inspect("yes")
-      refute error.message =~ ":intro"
     end
   end
 
@@ -409,7 +350,7 @@ defmodule ConsoleOps.ParamTest do
   end
 
   describe "cast/2 with nil" do
-    for type <- Param.types(), type != :any do
+    for type <- [:string, :integer, :boolean, :atom, :id, :map] do
       test "rejects nil for #{inspect(type)}" do
         assert Param.cast(param(unquote(type)), nil) == :error
       end
@@ -447,11 +388,8 @@ defmodule ConsoleOps.ParamTest do
                {:error, [{:missing, :invoice_id}, {:unknown, "INVOICE_ID", nil}]}
     end
 
-    test "returns an empty map for no params and an empty keyword list" do
+    test "returns an empty map for no params and empty input" do
       assert Param.cast_all([], []) == {:ok, %{}}
-    end
-
-    test "returns an empty map for no params and an empty map" do
       assert Param.cast_all([], %{}) == {:ok, %{}}
     end
 

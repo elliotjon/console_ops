@@ -18,7 +18,7 @@ defmodule ConsoleOps.Param do
   | Type       | Accepts                                                                                                 |
   | :--------- | :------------------------------------------------------------------------------------------------------ |
   | `:string`  | strings                                                                                                 |
-  | `:integer` | integers, and strings `Integer.parse/1` consumes fully, such as `"+5"`                                  |
+  | `:integer` | integers, and strings that `Integer.parse/1` parses in full, such as `"+5"`                             |
   | `:boolean` | `true`, `false`, `"true"` and `"false"`                                                                 |
   | `:atom`    | atoms except `nil`; strings naming an existing atom, except `"nil"` and `""`                            |
   | `:id`      | positive integers; ASCII digit strings, parsed, rejected if zero; any other non-empty string, unchanged |
@@ -55,8 +55,8 @@ defmodule ConsoleOps.Param do
 
   ## Differences from Ecto.Type
 
-    * `nil` is an error for every type except `:any`. Ecto casts `nil` to `{:ok, nil}`
-      for every type.
+    * `cast/2` rejects `nil` for every type except `:any`, and `cast_all/2` treats it
+      as missing. Ecto casts `nil` to `{:ok, nil}` for every built-in type.
     * `:boolean` accepts only `true`, `false`, `"true"` and `"false"`, not `"1"` or `"0"`.
     * `:id` rejects zero and negative integers, and returns any string that is not all
       ASCII digits, such as a UUID or `"-5"`, unchanged instead of parsing or rejecting it.
@@ -120,6 +120,8 @@ defmodule ConsoleOps.Param do
 
     * `:doc` - a description of the param. Defaults to `nil`.
 
+  Each option can be given at most once.
+
   ## Examples
 
       iex> ConsoleOps.Param.new!(:limit, :integer, default: 10)
@@ -171,7 +173,7 @@ defmodule ConsoleOps.Param do
   `input` is a map or a list of key-value pairs. Keys may be atoms or
   strings, and a string key matches the param of the same name.
 
-  Returns `{:ok, values}`, a map with exactly one key per param, where
+  Returns `{:ok, values}`, a map with a key for every param, where
   absent and `nil` optional params get their default. Otherwise returns
   `{:error, errors}` with every `t:error/0` found: at most one per param,
   in declaration order, followed by one per unknown key, in input order
@@ -252,7 +254,9 @@ defmodule ConsoleOps.Param do
             "invalid options for param #{inspect(name)}: expected a keyword list, got: #{inspect(opts)}"
     end
 
-    case opts |> Keyword.keys() |> Enum.uniq() |> Enum.reject(&(&1 in @options)) do
+    keys = Keyword.keys(opts)
+
+    case keys |> Enum.uniq() |> Enum.reject(&(&1 in @options)) do
       [] ->
         :ok
 
@@ -260,6 +264,16 @@ defmodule ConsoleOps.Param do
         raise ArgumentError,
               "unknown options #{inspect(unknown)} for param #{inspect(name)}, " <>
                 "valid options are: #{inspect(@options)}"
+    end
+
+    case Enum.uniq(keys -- Enum.uniq(keys)) do
+      [] ->
+        :ok
+
+      duplicates ->
+        raise ArgumentError,
+              "duplicate options #{inspect(duplicates)} for param #{inspect(name)}, " <>
+                "each option can be given at most once"
     end
   end
 
