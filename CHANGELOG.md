@@ -10,3 +10,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `ConsoleOps.Param`: typed parameter definitions and casting for console commands.
+- `ConsoleOps.Command`: the struct that describes one console command.
+- `ConsoleOps.Registry`: a DSL to declare commands by namespace and op, with compile-time validation.

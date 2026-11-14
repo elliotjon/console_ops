@@ -379,7 +379,9 @@ defmodule ConsoleOps.Param do
 
   defp cast_param(param, _absent), do: {:ok, param.default}
 
-  defp closest(string, candidates) do
+  @doc false
+  @spec closest(String.t(), [atom()]) :: atom() | nil
+  def closest(string, candidates) do
     {candidate, distance} =
       candidates
       |> Enum.map(&{&1, String.jaro_distance(string, Atom.to_string(&1))})
