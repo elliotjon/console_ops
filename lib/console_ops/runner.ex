@@ -23,9 +23,10 @@ defmodule ConsoleOps.Runner do
   when matching on `:reason`.
 
   Mistakes in the calling code raise instead of returning an error: a module
-  that does not use `ConsoleOps.Registry`, or a struct given as params, raises
-  `ArgumentError`; an id that is neither a string nor an atom, or params that
-  are neither a map nor a list, raises `FunctionClauseError`.
+  that does not use `ConsoleOps.Registry` raises `ArgumentError`, and so does
+  a struct given as params to a known command; an id that is neither a string
+  nor an atom, or params that are neither a map nor a list, raises
+  `FunctionClauseError`.
   """
 
   alias ConsoleOps.Error
@@ -55,7 +56,8 @@ defmodule ConsoleOps.Runner do
 
   """
   @spec run(module(), id(), map() | [{atom() | String.t(), term()}]) :: result()
-  def run(registry, id, params) when is_binary(id) or is_atom(id) do
+  def run(registry, id, params)
+      when (is_binary(id) or is_atom(id)) and (is_map(params) or is_list(params)) do
     validate_registry!(registry)
     id = id_to_string(id)
     commands = registry.__console_ops__(:commands)

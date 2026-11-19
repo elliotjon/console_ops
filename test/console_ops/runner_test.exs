@@ -372,5 +372,49 @@ defmodule ConsoleOps.RunnerTest do
         Runner.run!(Console, @invoice_state, %Point{x: 1})
       end
     end
+
+    # Passed through the test context so Elixir 1.20's type checker doesn't reject the literal.
+    @tag params: nil
+    test "raises FunctionClauseError from run/3 for nil params and a known id", %{params: params} do
+      error =
+        assert_raise FunctionClauseError, fn -> Runner.run(Console, @invoice_state, params) end
+
+      assert {error.module, error.function, error.arity} == {Runner, :run, 3}
+
+      error =
+        assert_raise FunctionClauseError, fn -> Runner.run!(Console, @invoice_state, params) end
+
+      assert {error.module, error.function, error.arity} == {Runner, :run, 3}
+    end
+
+    # Passed through the test context so Elixir 1.20's type checker doesn't reject the literal.
+    @tag params: nil
+    test "raises FunctionClauseError from run/3 for nil params and an unknown id", %{
+      params: params
+    } do
+      error =
+        assert_raise FunctionClauseError, fn -> Runner.run(Console, "shipping.track", params) end
+
+      assert {error.module, error.function, error.arity} == {Runner, :run, 3}
+
+      error =
+        assert_raise FunctionClauseError, fn -> Runner.run!(Console, "shipping.track", params) end
+
+      assert {error.module, error.function, error.arity} == {Runner, :run, 3}
+    end
+
+    # An unknown id is reported before params are looked at.
+    @tag params: %Point{x: 1}
+    test "returns :unknown_command for a struct as params and an unknown id", %{params: params} do
+      assert Runner.run(Console, "shipping.track", params) ==
+               {:error,
+                %Error{
+                  reason: :unknown_command,
+                  id: "shipping.track",
+                  suggestion: nil,
+                  errors: [],
+                  value: nil
+                }}
+    end
   end
 end
