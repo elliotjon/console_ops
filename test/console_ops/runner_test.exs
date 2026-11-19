@@ -305,17 +305,19 @@ defmodule ConsoleOps.RunnerTest do
   end
 
   describe "programmer errors" do
+    # Passed through the test context so Elixir 1.20's type checker doesn't reject the literal.
     for registry <- [Enum, ConsoleOps.RunnerTest.Missing, "MyApp.Console", nil] do
       message =
         "expected a module that uses ConsoleOps.Registry, got: #{inspect(registry)}"
 
-      test "raises for the registry #{inspect(registry)}" do
+      @tag registry: registry
+      test "raises for the registry #{inspect(registry)}", %{registry: registry} do
         assert_raise ArgumentError, unquote(message), fn ->
-          Runner.run(unquote(registry), @invoice_state, [])
+          Runner.run(registry, @invoice_state, [])
         end
 
         assert_raise ArgumentError, unquote(message), fn ->
-          Runner.run!(unquote(registry), @invoice_state, [])
+          Runner.run!(registry, @invoice_state, [])
         end
       end
     end
@@ -350,9 +352,11 @@ defmodule ConsoleOps.RunnerTest do
       assert Runner.run(registry, "a.b", []) == {:ok, 1}
     end
 
-    test "raises FunctionClauseError for an id that is neither a string nor an atom" do
-      assert_raise FunctionClauseError, fn -> Runner.run(Console, 42, []) end
-      assert_raise FunctionClauseError, fn -> Runner.run!(Console, 42, []) end
+    # Passed through the test context so Elixir 1.20's type checker doesn't reject the literal.
+    @tag id: 42
+    test "raises FunctionClauseError for an id that is neither a string nor an atom", %{id: id} do
+      assert_raise FunctionClauseError, fn -> Runner.run(Console, id, []) end
+      assert_raise FunctionClauseError, fn -> Runner.run!(Console, id, []) end
     end
 
     test "raises ArgumentError for a struct as params" do

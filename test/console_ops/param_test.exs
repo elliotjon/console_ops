@@ -576,10 +576,12 @@ defmodule ConsoleOps.ParamTest do
                    fn -> Param.cast_all(invoice_params(), %Point{x: 1}) end
     end
 
+    # Passed through the test context so Elixir 1.20's type checker doesn't reject the literal.
     for input <- [nil, "x", 1] do
-      test "keeps raising FunctionClauseError for #{inspect(input)}" do
+      @tag input: input
+      test "keeps raising FunctionClauseError for #{inspect(input)}", %{input: input} do
         assert_raise FunctionClauseError, fn ->
-          Param.cast_all(invoice_params(), unquote(input))
+          Param.cast_all(invoice_params(), input)
         end
       end
     end
