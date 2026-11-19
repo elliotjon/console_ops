@@ -22,7 +22,7 @@ defmodule ConsoleOps.Command do
   What a command does: `:readonly` only reads, `:mutation` changes data and
   `:destructive` deletes or cannot be undone.
   """
-  @type mode :: unquote(Enum.reduce(Enum.reverse(@modes), &{:|, [], [&1, &2]}))
+  @type mode :: :readonly | :mutation | :destructive
 
   @typedoc "A command. Build it with `ConsoleOps.Registry`."
   @type t :: %__MODULE__{

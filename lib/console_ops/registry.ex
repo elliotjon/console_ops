@@ -27,7 +27,8 @@ defmodule ConsoleOps.Registry do
       `ConsoleOps.Param.new!/3`
     * `run` - required, `fn params, ctx -> ... end`, a local capture
       `&fun/2` or a remote capture `&Mod.fun/2`. `{Mod, :fun}` tuples and
-      captures such as `&f(&1, &2)` are not accepted.
+      captures such as `&f(&1, &2)` are not accepted. The handler returns
+      `:ok`, `{:ok, value}` or `{:error, reason}`; see `ConsoleOps.Runner`.
 
   Namespace and op names must be literal atoms in lowercase snake_case, such as
   `:billing_v2`. A namespace block may be repeated, but namespaces do not nest
@@ -46,9 +47,10 @@ defmodule ConsoleOps.Registry do
       #=> "billing.invoice_state"
 
   When at least one op is declared, the module also defines
-  `__console_ops__(:run, id, params, ctx)`. It calls the `run` of the op with
-  that id and returns what it returns. It is the entry point for code that
-  executes commands, and is not meant to be called directly.
+  `__console_ops__(:run, id, params, ctx)`, which calls the `run` of the op
+  with that id and returns what it returns. `ConsoleOps.Runner` uses it to
+  execute commands; call `ConsoleOps.Runner.run/3` rather than calling it
+  directly.
 
   ## Evaluation order
 

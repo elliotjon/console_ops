@@ -180,7 +180,7 @@ defmodule ConsoleOps.Param do
   (enumeration order for a map).
 
   Raises `ArgumentError` if a list entry is not a `{key, value}` tuple or a key
-  is neither an atom nor a string.
+  is neither an atom nor a string. Structs are not accepted as input.
 
       iex> params = [
       ...>   ConsoleOps.Param.new!(:invoice_id, :id, required: true),
@@ -194,6 +194,12 @@ defmodule ConsoleOps.Param do
   """
   @spec cast_all([t()], map() | [{atom() | String.t(), term()}]) ::
           {:ok, %{optional(atom()) => term()}} | {:error, [error()]}
+  def cast_all(params, %_{} = input) when is_list(params) do
+    raise ArgumentError,
+          "expected input to be a map or a list of {key, value} pairs, " <>
+            "got a struct: #{inspect(input)}"
+  end
+
   def cast_all(params, input) when is_list(params) and (is_map(input) or is_list(input)) do
     entries = Enum.map(input, &normalize_entry!/1)
 
@@ -380,11 +386,11 @@ defmodule ConsoleOps.Param do
   defp cast_param(param, _absent), do: {:ok, param.default}
 
   @doc false
-  @spec closest(String.t(), [atom()]) :: atom() | nil
+  @spec closest(String.t(), [c]) :: c | nil when c: atom() | String.t()
   def closest(string, candidates) do
     {candidate, distance} =
       candidates
-      |> Enum.map(&{&1, String.jaro_distance(string, Atom.to_string(&1))})
+      |> Enum.map(&{&1, String.jaro_distance(string, to_string(&1))})
       |> Enum.max_by(fn {_candidate, distance} -> distance end, fn -> {nil, 0.0} end)
 
     if distance >= 0.8, do: candidate

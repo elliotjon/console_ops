@@ -12,3 +12,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ConsoleOps.Param`: typed parameter definitions and casting for console commands.
 - `ConsoleOps.Command`: the struct that describes one console command.
 - `ConsoleOps.Registry`: a DSL to declare commands by namespace and op, with compile-time validation.
+- `ConsoleOps.Runner`: runs a registry command by id, casting its params first.
+- `ConsoleOps.Error`: the exception returned or raised when a command cannot be run.
