@@ -1,8 +1,13 @@
+defmodule ConsoleOps.ParamTest.Point do
+  defstruct [:x]
+end
+
 defmodule ConsoleOps.ParamTest do
   use ExUnit.Case, async: true
   use ExUnitProperties
 
   alias ConsoleOps.Param
+  alias ConsoleOps.ParamTest.Point
 
   doctest ConsoleOps.Param
 
@@ -560,6 +565,52 @@ defmodule ConsoleOps.ParamTest do
                   {:unknown, "zebra", nil},
                   {:unknown, :limt, :limit}
                 ]}
+    end
+  end
+
+  describe "cast_all/2 struct input" do
+    test "rejects a struct, saying it is a struct" do
+      assert_raise ArgumentError,
+                   "expected input to be a map or a list of {key, value} pairs, " <>
+                     "got a struct: %ConsoleOps.ParamTest.Point{x: 1}",
+                   fn -> Param.cast_all(invoice_params(), %Point{x: 1}) end
+    end
+
+    # Passed through the test context so Elixir 1.20's type checker doesn't reject the literal.
+    for input <- [nil, "x", 1] do
+      @tag input: input
+      test "keeps raising FunctionClauseError for #{inspect(input)}", %{input: input} do
+        assert_raise FunctionClauseError, fn ->
+          Param.cast_all(invoice_params(), input)
+        end
+      end
+    end
+  end
+
+  describe "closest/2" do
+    test "returns the closest string candidate" do
+      assert Param.closest("billing.invoce_state", ["billing.refund", "billing.invoice_state"]) ==
+               "billing.invoice_state"
+    end
+
+    test "returns nil when no string candidate reaches 0.8" do
+      assert Param.closest("shipping.track", ["billing.refund", "billing.invoice_state"]) == nil
+    end
+
+    test "returns nil without candidates" do
+      assert Param.closest("billing.refund", []) == nil
+    end
+
+    # "abcd" scores 0.833 against both "abcx" and "abcy", so declaration order decides.
+    test "returns the earlier string candidate on a tie" do
+      assert Param.closest("abcd", ["abcx", "abcy"]) == "abcx"
+      assert Param.closest("abcd", ["abcy", "abcx"]) == "abcy"
+    end
+
+    # "limt" scores 0.93 against :limit and 0.47 against :offset; "zzz" scores 0.0.
+    test "still returns atom candidates unchanged" do
+      assert Param.closest("limt", [:offset, :limit]) == :limit
+      assert Param.closest("zzz", [:offset, :limit]) == nil
     end
   end
 
